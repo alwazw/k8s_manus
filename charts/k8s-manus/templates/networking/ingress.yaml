@@ -1,0 +1,102 @@
+{{- if .Values.networking.ingress.enabled }}
+---
+# Main Ingress for all services
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k8s-manus-ingress
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: k8s-manus
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: networking
+  annotations:
+    {{- with .Values.networking.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.networking.ingress.className }}
+  ingressClassName: {{ .Values.networking.ingress.className }}
+  {{- end }}
+  {{- if .Values.networking.ingress.tls.enabled }}
+  tls:
+  - hosts:
+    - "{{ .Values.authentik.subdomain }}.{{ .Values.global.domain }}"
+    - "{{ .Values.grafana.subdomain }}.{{ .Values.global.domain }}"
+    - "{{ .Values.pgadmin.subdomain }}.{{ .Values.global.domain }}"
+    - "{{ .Values.dashboards.heimdall.subdomain }}.{{ .Values.global.domain }}"
+    - "{{ .Values.dashboards.homer.subdomain }}.{{ .Values.global.domain }}"
+    secretName: {{ .Values.networking.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+  # Authentik SSO
+  {{- if .Values.authentik.enabled }}
+  - host: "{{ .Values.authentik.subdomain }}.{{ .Values.global.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: authentik
+            port:
+              number: 9000
+  {{- end }}
+  
+  # Grafana
+  {{- if .Values.grafana.enabled }}
+  - host: "{{ .Values.grafana.subdomain }}.{{ .Values.global.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+  {{- end }}
+  
+  # PgAdmin
+  {{- if .Values.pgadmin.enabled }}
+  - host: "{{ .Values.pgadmin.subdomain }}.{{ .Values.global.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pgadmin
+            port:
+              number: 5050
+  {{- end }}
+  
+  # Heimdall
+  {{- if .Values.dashboards.heimdall.enabled }}
+  - host: "{{ .Values.dashboards.heimdall.subdomain }}.{{ .Values.global.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: heimdall
+            port:
+              number: 8080
+  {{- end }}
+  
+  # Homer
+  {{- if .Values.dashboards.homer.enabled }}
+  - host: "{{ .Values.dashboards.homer.subdomain }}.{{ .Values.global.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: homer
+            port:
+              number: 8081
+  {{- end }}
+{{- end }}
+

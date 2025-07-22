@@ -1,0 +1,230 @@
+{{- if .Values.authentik.enabled }}
+---
+# Authentik Server Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentik-server
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: authentik-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: authentication
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.authentik.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authentik-server
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: authentik-server
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: authentication
+    spec:
+      containers:
+      - name: authentik-server
+        image: "{{ .Values.images.authentik.repository }}:{{ .Values.images.authentik.tag }}"
+        imagePullPolicy: {{ .Values.images.authentik.pullPolicy }}
+        command: ["dumb-init", "--", "ak", "server"]
+        ports:
+        - containerPort: 9000
+          name: http
+        env:
+        - name: AUTHENTIK_REDIS__HOST
+          value: redis
+        - name: AUTHENTIK_REDIS__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: redis-password
+        - name: AUTHENTIK_POSTGRESQL__HOST
+          value: postgres
+        - name: AUTHENTIK_POSTGRESQL__USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-username
+        - name: AUTHENTIK_POSTGRESQL__NAME
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-database
+        - name: AUTHENTIK_POSTGRESQL__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-password
+        - name: AUTHENTIK_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: authentik-secrets
+              key: secret-key
+        - name: AUTHENTIK_ERROR_REPORTING__ENABLED
+          value: "false"
+        - name: AUTHENTIK_DISABLE_UPDATE_CHECK
+          value: "true"
+        - name: AUTHENTIK_DISABLE_STARTUP_ANALYTICS
+          value: "true"
+        - name: AUTHENTIK_AVATARS
+          value: "none"
+        volumeMounts:
+        - name: authentik-media
+          mountPath: /media
+        - name: authentik-templates
+          mountPath: /templates
+        resources:
+          {{- toYaml .Values.authentik.resources.server | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /api/v3/admin/version/
+            port: http
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v3/admin/version/
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: authentik-media
+        persistentVolumeClaim:
+          claimName: authentik-media-pvc
+      - name: authentik-templates
+        emptyDir: {}
+
+---
+# Authentik Worker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentik-worker
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: authentik-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: authentication
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.authentik.worker.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authentik-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: authentik-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: authentication
+    spec:
+      containers:
+      - name: authentik-worker
+        image: "{{ .Values.images.authentik.repository }}:{{ .Values.images.authentik.tag }}"
+        imagePullPolicy: {{ .Values.images.authentik.pullPolicy }}
+        command: ["dumb-init", "--", "ak", "worker"]
+        env:
+        - name: AUTHENTIK_REDIS__HOST
+          value: redis
+        - name: AUTHENTIK_REDIS__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: redis-password
+        - name: AUTHENTIK_POSTGRESQL__HOST
+          value: postgres
+        - name: AUTHENTIK_POSTGRESQL__USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-username
+        - name: AUTHENTIK_POSTGRESQL__NAME
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-database
+        - name: AUTHENTIK_POSTGRESQL__PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: postgres-password
+        - name: AUTHENTIK_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: authentik-secrets
+              key: secret-key
+        - name: AUTHENTIK_ERROR_REPORTING__ENABLED
+          value: "false"
+        - name: AUTHENTIK_DISABLE_UPDATE_CHECK
+          value: "true"
+        - name: AUTHENTIK_DISABLE_STARTUP_ANALYTICS
+          value: "true"
+        volumeMounts:
+        - name: authentik-media
+          mountPath: /media
+        - name: authentik-templates
+          mountPath: /templates
+        resources:
+          {{- toYaml .Values.authentik.resources.worker | nindent 10 }}
+      volumes:
+      - name: authentik-media
+        persistentVolumeClaim:
+          claimName: authentik-media-pvc
+      - name: authentik-templates
+        emptyDir: {}
+
+---
+# Authentik Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: authentik
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: authentication
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: authentik-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
+
+{{- if .Values.networking.nodePort.enabled }}
+---
+# Authentik NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: authentik-nodeport
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: authentik
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: authentication
+spec:
+  type: NodePort
+  ports:
+  - port: 9000
+    targetPort: http
+    nodePort: 30900
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: authentik-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}
+

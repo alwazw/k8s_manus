@@ -1,0 +1,124 @@
+{{- if .Values.pgadmin.enabled }}
+---
+# PgAdmin Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: application
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.pgadmin.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgadmin
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgadmin
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: application
+    spec:
+      containers:
+      - name: pgadmin
+        image: "{{ .Values.images.pgadmin.repository }}:{{ .Values.images.pgadmin.tag }}"
+        imagePullPolicy: {{ .Values.images.pgadmin.pullPolicy }}
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: PGADMIN_DEFAULT_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: admin-email
+        - name: PGADMIN_DEFAULT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: admin-password
+        - name: PGADMIN_CONFIG_SERVER_MODE
+          value: "False"
+        - name: PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED
+          value: "False"
+        - name: PGADMIN_LISTEN_PORT
+          value: "80"
+        volumeMounts:
+        - name: pgadmin-storage
+          mountPath: /var/lib/pgadmin
+        resources:
+          {{- toYaml .Values.pgadmin.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /misc/ping
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /misc/ping
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: pgadmin-storage
+        persistentVolumeClaim:
+          claimName: pgadmin-pvc
+
+---
+# PgAdmin Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: application
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5050
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+
+{{- if .Values.networking.nodePort.enabled }}
+---
+# PgAdmin NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin-nodeport
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: application
+spec:
+  type: NodePort
+  ports:
+  - port: 5050
+    targetPort: http
+    nodePort: 30505
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}
+

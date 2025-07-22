@@ -1,0 +1,110 @@
+{{- if .Values.dashboards.homer.enabled }}
+---
+# Homer Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homer
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: homer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: dashboard
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.dashboards.homer.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: dashboard
+    spec:
+      containers:
+      - name: homer
+        image: "{{ .Values.images.homer.repository }}:{{ .Values.images.homer.tag }}"
+        imagePullPolicy: {{ .Values.images.homer.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: INIT_ASSETS
+          value: "1"
+        volumeMounts:
+        - name: homer-storage
+          mountPath: /www/assets
+        resources:
+          {{- toYaml .Values.dashboards.homer.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: homer-storage
+        persistentVolumeClaim:
+          claimName: homer-pvc
+
+---
+# Homer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: homer
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: homer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: dashboard
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8081
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: homer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+
+{{- if .Values.networking.nodePort.enabled }}
+---
+# Homer NodePort Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: homer-nodeport
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app.kubernetes.io/name: homer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: dashboard
+spec:
+  type: NodePort
+  ports:
+  - port: 8081
+    targetPort: http
+    nodePort: 30801
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: homer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}
+
