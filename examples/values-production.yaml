@@ -1,0 +1,128 @@
+# K8s Manus Stack - Production Configuration Example
+# Copy this file and customize for your production environment
+
+# Global Configuration
+global:
+  namespace: k8s-manus-prod
+  domain: your-domain.com
+  hostIP: your-host-ip
+  storageClass: fast-ssd  # Use high-performance storage class
+  
+# Authentication & Credentials (CHANGE THESE!)
+auth:
+  adminUser: admin
+  adminPassword: "CHANGE-THIS-SECURE-PASSWORD"
+  adminEmail: admin@your-domain.com
+
+# Database Configuration - Production Sizing
+databases:
+  postgres:
+    enabled: true
+    storage: 50Gi  # Increased storage for production
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+        
+  mysql:
+    enabled: true
+    storage: 50Gi  # Increased storage for production
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+        
+  redis:
+    enabled: true
+    storage: 20Gi  # Increased storage for production
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Authentik SSO Configuration - High Availability
+authentik:
+  enabled: true
+  secretKey: "CHANGE-THIS-TO-A-VERY-SECURE-SECRET-KEY-FOR-PRODUCTION"
+  replicas: 3  # High availability
+  worker:
+    replicas: 2  # Multiple workers for performance
+  resources:
+    server:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+    worker:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+# Grafana Configuration - High Availability
+grafana:
+  enabled: true
+  replicas: 2  # High availability
+  oauth:
+    enabled: true
+    clientSecret: "CHANGE-THIS-OAUTH-SECRET"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Networking Configuration - Production
+networking:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    tls:
+      enabled: true
+      secretName: k8s-manus-tls
+      
+  nodePort:
+    enabled: false  # Disable NodePort in production, use Ingress instead
+
+# Security Configuration - Production Hardening
+security:
+  networkPolicies:
+    enabled: true
+  podSecurityStandards:
+    enabled: true
+  rbac:
+    enabled: true
+    
+# Monitoring Configuration - Enable for production
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+  prometheusRule:
+    enabled: true
+
+# Backup Configuration - Enable for production
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30  # Keep 30 days of backups
+

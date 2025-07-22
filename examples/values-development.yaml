@@ -1,0 +1,152 @@
+# K8s Manus Stack - Development Configuration Example
+# Optimized for local development and testing
+
+# Global Configuration
+global:
+  namespace: k8s-manus-dev
+  domain: localhost
+  hostIP: 127.0.0.1
+  storageClass: standard
+  
+# Authentication & Credentials (Development defaults)
+auth:
+  adminUser: admin
+  adminPassword: admin123
+  adminEmail: admin@localhost
+
+# Database Configuration - Development Sizing
+databases:
+  postgres:
+    enabled: true
+    storage: 5Gi  # Smaller storage for development
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+        
+  mysql:
+    enabled: true
+    storage: 5Gi  # Smaller storage for development
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+        
+  redis:
+    enabled: true
+    storage: 2Gi  # Smaller storage for development
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+# Authentik SSO Configuration - Single instance
+authentik:
+  enabled: true
+  secretKey: "development-secret-key-not-for-production"
+  replicas: 1  # Single instance for development
+  worker:
+    replicas: 1  # Single worker for development
+  resources:
+    server:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
+    worker:
+      requests:
+        memory: "128Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "100m"
+
+# Grafana Configuration - Single instance
+grafana:
+  enabled: true
+  replicas: 1  # Single instance for development
+  oauth:
+    enabled: false  # Disable OAuth for easier development
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+
+# Dashboard Services - Minimal resources
+dashboards:
+  heimdall:
+    enabled: true
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "25m"
+      limits:
+        memory: "128Mi"
+        cpu: "50m"
+        
+  homer:
+    enabled: true
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "10m"
+      limits:
+        memory: "64Mi"
+        cpu: "25m"
+
+# PgAdmin Configuration - Minimal resources
+pgadmin:
+  enabled: true
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+
+# Networking Configuration - Development
+networking:
+  ingress:
+    enabled: false  # Disable Ingress for development
+    tls:
+      enabled: false  # No TLS for development
+      
+  nodePort:
+    enabled: true  # Use NodePort for easy local access
+
+# Security Configuration - Relaxed for development
+security:
+  networkPolicies:
+    enabled: false  # Disable for easier development
+  podSecurityStandards:
+    enabled: false  # Disable for easier development
+  rbac:
+    enabled: false  # Disable for easier development
+    
+# Monitoring Configuration - Disabled for development
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false
+
+# Backup Configuration - Disabled for development
+backup:
+  enabled: false
+
